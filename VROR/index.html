@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>ISISS Matese — Orientamento in realtà mista</title>
+  <style>
+    :root{--navy:#071426;--ink:#f4f8ff;--muted:#b6c9df;--orange:#ff9a38;--pink:#f34eaa;--teal:#42e5f4;--green:#56e6a5}
+    *{box-sizing:border-box}
+    html{min-height:100%;background:var(--navy)}
+    body{margin:0;min-height:100vh;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:radial-gradient(ellipse at 50% 0%,#16465a 0%,#0b2038 44%,#050d1c 100%);padding:clamp(16px,3vw,36px);overflow-x:hidden}
+    .site{width:min(1120px,100%);margin:0 auto}
+    .hero{position:relative;display:grid;grid-template-columns:150px 1fr;align-items:center;gap:28px;padding:clamp(22px,4vw,42px);border:1px solid #61eaff70;border-radius:30px;background:linear-gradient(135deg,#102b46eF,#0b172beF);box-shadow:0 0 40px #23d9ff16,inset 0 0 30px #40dffb0a;overflow:hidden}
+    .hero:before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(110deg,transparent 20%,#63efff0a 50%,transparent 80%)}
+    .hero-logo{width:100%;max-width:150px;filter:drop-shadow(0 0 20px #37dfff70);animation:float 4s ease-in-out infinite}
+    .eyebrow{color:var(--teal);font-size:.78rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;margin:0 0 8px}
+    h1{font-size:clamp(1.8rem,4vw,3.3rem);line-height:1.04;margin:0 0 14px;letter-spacing:-.035em}
+    .intro{max-width:62ch;color:var(--muted);line-height:1.65;margin:0 0 20px}
+    button{border:0;border-radius:14px;padding:14px 20px;font-size:1rem;font-weight:800;cursor:pointer;color:#061426;background:linear-gradient(100deg,var(--orange),var(--pink) 45%,var(--teal) 80%,var(--green));box-shadow:0 8px 25px #19cce52b;transition:transform .2s,filter .2s}
+    button:hover{transform:translateY(-2px);filter:brightness(1.08)}button:focus-visible{outline:3px solid white;outline-offset:4px}button:disabled{opacity:.5;cursor:not-allowed;filter:grayscale(.6);transform:none}
+    #status{margin-top:12px;font-size:.88rem;color:var(--muted);min-height:22px}.hidden{display:none!important}
+    .section-head{display:flex;align-items:end;justify-content:space-between;gap:16px;margin:38px 4px 18px}.section-head h2{font-size:clamp(1.4rem,3vw,2.1rem);margin:0}.section-head p{color:var(--muted);margin:6px 0 0;line-height:1.5}
+    .programs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
+    .program-card{position:relative;display:flex;flex-direction:column;min-width:0;padding:12px;border:1px solid #5be9ff78;border-radius:24px;background:linear-gradient(145deg,#142f4b,#0b182b);box-shadow:0 14px 36px #0004,inset 0 0 25px #52eaff09;overflow:hidden;transition:transform .28s,border-color .28s,box-shadow .28s;animation:rise .7s both}
+    .program-card:nth-child(2){animation-delay:.12s;border-color:#ffb95780}.program-card:hover{transform:translateY(-7px);border-color:#5be9ff;box-shadow:0 20px 44px #0006,0 0 26px #39dff51b}
+    .image-button{position:relative;display:block;width:100%;padding:0;border-radius:15px;overflow:hidden;background:#081323;box-shadow:none}
+    .image-button img{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;transition:transform .5s,filter .4s}.image-button:hover img{transform:scale(1.035);filter:saturate(1.08)}
+    .zoom-hint{position:absolute;right:12px;bottom:12px;padding:8px 11px;border:1px solid #a4f6ff90;border-radius:99px;background:#071426d9;color:#eaffff;font-size:.8rem;backdrop-filter:blur(10px)}
+    .card-copy{padding:16px 10px 10px}.card-copy .tag{display:inline-block;color:var(--teal);font-size:.72rem;letter-spacing:.13em;text-transform:uppercase;font-weight:850;margin-bottom:7px}.program-card:nth-child(2) .tag{color:#ffc66f}.card-copy h3{font-size:1.22rem;margin:0 0 8px}.card-copy p{margin:0;color:var(--muted);line-height:1.55;font-size:.94rem}
+    .footer-note{text-align:center;color:#8199b6;font-size:.82rem;padding:26px 0 8px}
+    .lightbox{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:20px;background:#020712eF;backdrop-filter:blur(14px)}.lightbox-inner{position:relative;width:min(900px,100%);max-height:90vh;padding:10px;border:1px solid #66eaff8a;border-radius:20px;background:#0b1a2e;box-shadow:0 0 60px #24d8ff25}.lightbox img{display:block;width:100%;max-height:calc(90vh - 20px);object-fit:contain;border-radius:12px}.close-lightbox{position:absolute;top:18px;right:18px;width:44px;height:44px;padding:0;border:1px solid #fff8;border-radius:50%;background:#071426e8;color:white;font-size:1.4rem;box-shadow:none}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+    @media(max-width:680px){body{padding:14px}.hero{grid-template-columns:1fr;text-align:center;gap:18px}.hero-logo{width:108px;margin:auto}.intro{margin-inline:auto}.programs{grid-template-columns:1fr}.section-head{align-items:start;flex-direction:column;margin-top:28px}.program-card{max-width:540px;width:100%;margin:auto}.card-copy{text-align:left}}
+    @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+  </style>
+</head>
+<body>
+  <main class="site" id="ui">
+    <section class="hero" aria-labelledby="main-title">
+      <img class="hero-logo" src="./logo.png" alt="Logo ISISS Matese">
+      <div>
+        <p class="eyebrow">ISISS Matese · Orientamento immersivo</p>
+        <h1 id="main-title">Scopri l’informatica industriale</h1>
+        <p class="intro">Esplora il percorso di studi dal terzo al quinto anno. Apri le schede per vedere il programma completo e, se usi un visore compatibile, entra nell’esperienza in realtà mista: il logo prende vita e le materie ti accompagnano nello spazio.</p>
+        <button id="start" disabled>Controllo WebXR…</button>
+        <div id="status" role="status">Sto verificando il supporto del visore…</div>
+      </div>
+    </section>
+
+    <section aria-labelledby="program-title">
+      <div class="section-head"><div><p class="eyebrow">Il tuo percorso</p><h2 id="program-title">I programmi di studio</h2><p>Seleziona una scheda per ingrandirla. In realtà mista le materie orbitano attorno al logo: guardane una per aprirla.</p></div></div>
+      <div class="programs">
+        <article class="program-card">
+          <button class="image-button" type="button" data-image="./programma-anni-3-4.jpg" aria-label="Ingrandisci il programma del terzo e quarto anno"><img src="./programma-anni-3-4.jpg" alt="Programma di studio di informatica industriale per gli anni terzo e quarto"><span class="zoom-hint">↗ Apri scheda</span></button>
+          <div class="card-copy"><span class="tag">Anni 3° e 4°</span><h3>Costruisci le tue basi</h3><p>Programmazione, elettronica digitale, sistemi embedded, reti, sicurezza informatica e telecomunicazioni.</p></div>
+        </article>
+        <article class="program-card">
+          <button class="image-button" type="button" data-image="./programma-anno-5.jpg" aria-label="Ingrandisci il programma del quinto anno"><img src="./programma-anno-5.jpg" alt="Programma di studio di informatica industriale per il quinto anno"><span class="zoom-hint">↗ Apri scheda</span></button>
+          <div class="card-copy"><span class="tag">Anno 5°</span><h3>Porta le competenze al livello successivo</h3><p>Sviluppo web avanzato, cloud, machine learning, cybersecurity, architetture software e project management.</p></div>
+        </article>
+      </div>
+      <p class="footer-note">ISISS Matese · Informatica Industriale</p>
+    </section>
+  </main>
+  <div class="lightbox hidden" id="lightbox" role="dialog" aria-modal="true" aria-label="Programma di studio ingrandito"><div class="lightbox-inner"><button class="close-lightbox" id="close-lightbox" aria-label="Chiudi immagine">×</button><img id="lightbox-image" src="" alt="Programma di studio ingrandito"></div></div>
+
+  <script type="module">
+    import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
+
+    const startBtn = document.querySelector("#start");
+    const statusEl = document.querySelector("#status");
+    const ui = document.querySelector("#ui");
+    const setStatus = t => statusEl.textContent = t;
+
+    // Schede del programma: apertura ingrandita, chiusura da pulsante, sfondo o Escape.
+    const lightbox = document.querySelector("#lightbox");
+    const lightboxImage = document.querySelector("#lightbox-image");
+    const closeLightbox = () => { lightbox.classList.add("hidden"); lightboxImage.src = ""; };
+    document.querySelectorAll("[data-image]").forEach(card => card.addEventListener("click", () => {
+      lightboxImage.src = card.dataset.image;
+      lightboxImage.alt = card.querySelector("img").alt;
+      lightbox.classList.remove("hidden");
+    }));
+    document.querySelector("#close-lightbox").addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", e => { if (e.target === lightbox) closeLightbox(); });
+    addEventListener("keydown", e => { if (e.key === "Escape") closeLightbox(); });
+
+    /* ---------- Parametri regolabili ---------- */
+    const CFG = {
+      size: 0.46,           // logo più compatto per dare spazio alle tavole
+      spawnDelay: 1.2,      // secondi prima che compaia
+      spawnDistance: 2.25,  // comparsa a distanza confortevole
+      minY: 0.45, maxY: 1.9,// altezza di volo
+      speed: 0.13,          // movimento lento e naturale (m/s)
+      fleeSpeed: 0.28,      // allontanamento dolce
+      roamRadius: 2.1,      // esplora vicino senza inseguire
+      fallbackRadius: 2.5,  // area se il visore non ha i confini
+      avoidMargin: 0.62,    // margine di sicurezza da pareti e mobili
+      shyDistance: 1.35,    // mantiene una distanza personale più ampia
+      dodgeSpeedHead: 1.35, // si scansa solo se ti avvicini molto rapidamente
+      curiousEvery: [18,28], // si muove verso di te più raramente
+      perchChance: 0.2      // occasionalmente si posa su un tavolo rilevato
+    };
+
+    /* ---------- Stato ---------- */
+    let scene, camera, renderer, pivot, logo, shadow;
+    let session = null, last = null, startTime = 0;
+    const S = {
+      spawned:false, spawnT:0, wp:new THREE.Vector3(), pause:0,
+      vel:new THREE.Vector3(), flee:0, jumpT:-1, spinT:-1, yaw:0,
+      center:new THREE.Vector3(), poly:[], planes:[],
+      mode:"wander", modeT:0, prevHead:new THREE.Vector3(), closing:0,
+      curiousCd:6, greetCd:0, gazeT:0, flick:0, perch:null, perchPhase:"",
+      groundY:0, dodgeCd:0, curDir:new THREE.Vector3(0,0,1), initHead:false
+    };
+    const gazeDir = new THREE.Vector3(), dirV = new THREE.Vector3(), sideV = new THREE.Vector3();
+    const perchTarget = new THREE.Vector3();
+    const head = new THREE.Vector3(), fwd = new THREE.Vector3();
+    const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3();
+    
+    /* ---------- Materie che orbitano attorno al logo ---------- */
+    const SUBJECTS = [
+      {name:"Anni 3° e 4°", color:"#42e5f4", items:[
+        ["Informatica","</>",["C++, Java, Python","Algoritmi e strutture dati","Sviluppo di software e app"]],
+        ["TPSI","⚙️",["Elettronica digitale","Microcontrollori Arduino","Sistemi embedded"]],
+        ["Reti","🌐",["Architetture TCP/IP","Ethical hacking: le basi","Cloud e SD-WAN"]],
+        ["Telecom","📡",["Teoria dei segnali","Radiofrequenza e fibra ottica","Protocolli di trasmissione"]]]},
+      {name:"Anno 5°", color:"#ffbd64", items:[
+        ["Info avanzata","🧠",["Web complesso e cloud","Algoritmi di ricerca","Machine learning"]],
+        ["TPSI avanzato","🤖",["Embedded complessi","Automazione industriale","Interfacce utente"]],
+        ["Reti avanzate","🔒",["Sicurezza di rete avanzata","Advanced cyber security","Cloud network, SD-WAN"]],
+        ["GPOI","📊",["Project management","Agile e architetture software","Risk management, leadership"]]]}
+    ];
+    const M = {sets:[], set:0, vis:0, dir:1, cycle:0, ang:0, spd:0.35, sel:-1, cand:-1, dwell:0, lose:0, ds:0};
+    let orbit, halo, detail;
+    const tmp3 = new THREE.Vector3();
+    const FONT = "system-ui,-apple-system,sans-serif";
+    function chipTex(name, icon, col){
+      const c=document.createElement("canvas"); c.width=c.height=256; const g=c.getContext("2d");
+      g.fillStyle="#071426ee"; g.strokeStyle=col; g.lineWidth=8;
+      g.beginPath(); g.roundRect(8,8,240,240,48); g.fill(); g.stroke();
+      g.textAlign="center"; g.fillStyle="#fff"; g.font="84px "+FONT; g.fillText(icon,128,128);
+      let fs=38; g.font="800 "+fs+"px "+FONT;
+      while(g.measureText(name).width>205 && fs>18){ fs-=2; g.font="800 "+fs+"px "+FONT; }
+      g.fillStyle=col; g.fillText(name,128,205);
+      const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t;
+    }
+    function detailTex(name, lines, col){
+      const c=document.createElement("canvas"); c.width=512; c.height=256; const g=c.getContext("2d");
+      g.fillStyle="#071426ee"; g.strokeStyle=col; g.lineWidth=6;
+      g.beginPath(); g.roundRect(6,6,500,244,32); g.fill(); g.stroke();
+      g.textAlign="left"; g.fillStyle=col; g.font="800 44px "+FONT; g.fillText(name,32,72);
+      g.fillStyle="#f4f8ff"; g.font="30px "+FONT;
+      lines.forEach((l,i)=>g.fillText("• "+l,32,130+i*46));
+      const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t;
+    }
+
+    /* ---------- Utilità ---------- */
+    const rand = (a,b) => a + Math.random()*(b-a);
+    const easeOutBack = t => { const c=1.70158; return 1 + (c+1)*Math.pow(t-1,3) + c*Math.pow(t-1,2); };
+    const angDiff = (a,b) => Math.atan2(Math.sin(b-a), Math.cos(b-a));
+
+    function pointInPoly(x, z, poly){
+      let inside = false;
+      for (let i=0,j=poly.length-1;i<poly.length;j=i++){
+        const a=poly[i], b=poly[j];
+        if ((a.z>z)!==(b.z>z) && x < (b.x-a.x)*(z-a.z)/(b.z-a.z)+a.x) inside=!inside;
+      }
+      return inside;
+    }
+    function inArea(x, z){
+      if (S.poly.length >= 3) return pointInPoly(x, z, S.poly);
+      return Math.hypot(x-S.center.x, z-S.center.z) < CFG.fallbackRadius;
+    }
+
+    /* ---------- Piani rilevati nella stanza (pareti, tavoli, pavimento) ---------- */
+    function updatePlanes(frame, refSpace){
+      S.planes.length = 0;
+      const set = frame.detectedPlanes;
+      if (!set) return;
+      for (const plane of set){
+        const pose = frame.getPose(plane.planeSpace, refSpace);
+        if (!pose) continue;
+        const m = new THREE.Matrix4().fromArray(pose.transform.matrix);
+        let minX=1e9,maxX=-1e9,minZ=1e9,maxZ=-1e9;
+        for (const p of plane.polygon){
+          if (p.x<minX) minX=p.x; if (p.x>maxX) maxX=p.x;
+          if (p.z<minZ) minZ=p.z; if (p.z>maxZ) maxZ=p.z;
+        }
+        const nrm = new THREE.Vector3(m.elements[4], m.elements[5], m.elements[6]).normalize();
+        S.planes.push({
+          inv: m.clone().invert(),
+          normal: nrm,
+          center: new THREE.Vector3((minX+maxX)/2, 0, (minZ+maxZ)/2).applyMatrix4(m),
+          w: maxX-minX, d: maxZ-minZ,
+          horizontal: Math.abs(nrm.y) > 0.85,
+          minX, maxX, minZ, maxZ
+        });
+      }
+    }
+    // Se apply=true spinge fuori il logo e gli toglie la velocità verso il piano.
+    function planeCollision(pos, vel, margin, apply, skipHorizontal=false){
+      let hit = false;
+      for (const pl of S.planes){
+        if (skipHorizontal && pl.horizontal) continue;
+        tmp2.copy(pos).applyMatrix4(pl.inv);
+        if (Math.abs(tmp2.y) < margin &&
+            tmp2.x > pl.minX-margin && tmp2.x < pl.maxX+margin &&
+            tmp2.z > pl.minZ-margin && tmp2.z < pl.maxZ+margin){
+          hit = true;
+          if (apply){
+            const side = tmp2.y >= 0 ? 1 : -1;
+            const n = tmp.copy(pl.normal).multiplyScalar(side);
+            pos.addScaledVector(n, (margin - Math.abs(tmp2.y)) * 0.25);
+            const into = vel.dot(n);
+            if (into < 0) vel.addScaledVector(n, -into);
+            S.pause = Math.min(S.pause, 0.2);
+            S.wp.copy(pos).addScaledVector(n, 1.0); // si sposta lontano dall'ostacolo
+            S.wp.y = THREE.MathUtils.clamp(S.wp.y, CFG.minY, CFG.maxY);
+          }
+        }
+      }
+      return hit;
+    }
+
+    /* ---------- Scelta della prossima meta ---------- */
+    function pickWaypoint(){
+      for (let i=0;i<40;i++){
+        const a = rand(0, Math.PI*2), r = rand(0.8, CFG.roamRadius);
+        const x = head.x + Math.cos(a)*r, z = head.z + Math.sin(a)*r, y = rand(CFG.minY+0.15, CFG.maxY-0.3);
+        if (!inArea(x, z)) continue;
+        tmp.set(x, y, z);
+        if (planeCollision(tmp, S.vel, CFG.avoidMargin*1.6, false)) continue;
+        S.wp.copy(tmp);
+        return;
+      }
+      S.wp.set(head.x, 1.2, head.z).addScaledVector(fwd, 1.2); // piano B: davanti a te
+    }
+
+    /* ---------- Creazione scena ---------- */
+    function init(){
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.01, 30);
+
+      renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+      renderer.setSize(innerWidth, innerHeight);
+      renderer.setClearColor(0x000000, 0);
+      renderer.xr.enabled = true;
+      renderer.xr.setReferenceSpaceType("local-floor");
+      document.body.appendChild(renderer.domElement);
+
+      // Logo
+      const tex = new THREE.TextureLoader().load("./logo.png", t => {
+        logo.scale.y = t.image.height / t.image.width;
+      });
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 4;
+      logo = new THREE.Mesh(
+        new THREE.PlaneGeometry(CFG.size, CFG.size),
+        new THREE.MeshBasicMaterial({map:tex, transparent:true, alphaTest:0.04, side:THREE.DoubleSide})
+      );
+      pivot = new THREE.Group();
+      pivot.add(logo);
+
+      // Due schede olografiche del programma, fluttuanti ai lati del logo in AR.
+      const programBoards = [];
+      const boardSpecs = [
+        {src:"./programma-anni-3-4.jpg", x:-0.86, y:-0.02, z:0.035, tint:0x4be8ff},
+        {src:"./programma-anno-5.jpg", x:0.86, y:-0.02, z:0.035, tint:0xffbd64}
+      ];
+      for (const spec of boardSpecs){
+        const board = new THREE.Group();
+        board.position.set(spec.x, spec.y, spec.z);
+        board.rotation.z = spec.x < 0 ? 0.035 : -0.035;
+        const backing = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.78,0.78),
+          new THREE.MeshBasicMaterial({color:spec.tint, transparent:true, opacity:0.22, side:THREE.DoubleSide})
+        );
+        backing.position.z = -0.012;
+        board.add(backing);
+        const imageTexture = new THREE.TextureLoader().load(spec.src);
+        imageTexture.colorSpace = THREE.SRGBColorSpace;
+        imageTexture.anisotropy = 4;
+        const imageMesh = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.74,0.74),
+          new THREE.MeshBasicMaterial({map:imageTexture, side:THREE.DoubleSide, transparent:false})
+        );
+        board.add(imageMesh);
+        pivot.add(board);
+        programBoards.push({board, baseY:spec.y, phase:spec.x < 0 ? 0 : Math.PI});
+      }
+      pivot.userData.programBoards = programBoards;
+
+      // Alone dietro al logo (cambia colore con l'anno) + chip delle materie in orbita + pannello dettaglio
+      halo = new THREE.Mesh(new THREE.RingGeometry(0.19,0.215,64),
+        new THREE.MeshBasicMaterial({color:0x42e5f4, transparent:true, opacity:0.5, side:THREE.DoubleSide}));
+      halo.position.z = -0.01; pivot.add(halo);
+      orbit = new THREE.Group(); pivot.add(orbit);
+      M.sets = SUBJECTS.map(s => ({
+        color:new THREE.Color(s.color),
+        chips:s.items.map(([n,ic,ls]) => {
+          const m = new THREE.Mesh(new THREE.PlaneGeometry(0.14,0.14),
+            new THREE.MeshBasicMaterial({map:chipTex(n,ic,s.color), transparent:true, side:THREE.DoubleSide}));
+          m.visible=false; m.scale.setScalar(0.001); orbit.add(m);
+          return {m, s:1, detail:detailTex(n,ls,s.color)};
+        })
+      }));
+      detail = new THREE.Mesh(new THREE.PlaneGeometry(0.56,0.28),
+        new THREE.MeshBasicMaterial({map:M.sets[0].chips[0].detail, transparent:true, side:THREE.DoubleSide}));
+      detail.position.set(0,0.6,0.05); detail.visible=false; pivot.add(detail);
+      pivot.rotation.order = "YXZ";
+      pivot.visible = false;
+      scene.add(pivot);
+
+      // Ombra morbida sul pavimento: dà l'impressione che il logo sia davvero nella stanza
+      const c = document.createElement("canvas"); c.width = c.height = 128;
+      const g = c.getContext("2d");
+      const grad = g.createRadialGradient(64,64,4,64,64,64);
+      grad.addColorStop(0,"rgba(0,0,0,.55)"); grad.addColorStop(1,"rgba(0,0,0,0)");
+      g.fillStyle = grad; g.fillRect(0,0,128,128);
+      shadow = new THREE.Mesh(
+        new THREE.PlaneGeometry(1,1).rotateX(-Math.PI/2),
+        new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c), transparent:true, depthWrite:false})
+      );
+      shadow.visible = false;
+      scene.add(shadow);
+
+      renderer.setAnimationLoop(render);
+      addEventListener("resize", () => {
+        camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+      });
+    }
+
+    /* ---------- Sessione AR ---------- */
+    async function startAR(){
+      if (!renderer) init();
+      try {
+        session = await navigator.xr.requestSession("immersive-ar", {
+          optionalFeatures: ["local-floor","bounded-floor","plane-detection","mesh-detection","hit-test","anchors","hand-tracking"]
+        });
+      } catch (e) {
+        setStatus("Impossibile avviare la sessione AR: " + e.message);
+        return;
+      }
+      await renderer.xr.setSession(session);
+      ui.classList.add("hidden");
+      last = null; startTime = 0;
+      Object.assign(S, {spawned:false, spawnT:0, pause:0, flee:0, jumpT:-1, spinT:-1, planes:[], poly:[],
+        mode:"wander", modeT:0, closing:0, curiousCd:6, greetCd:0, gazeT:0, flick:0, perch:null,
+        perchPhase:"", groundY:0, dodgeCd:0, initHead:false});
+      S.vel.set(0,0,0);
+      Object.assign(M, {set:0, vis:0, dir:1, cycle:0, ang:0, spd:0.35, sel:-1, cand:-1, dwell:0, lose:0, ds:0});
+      pivot.visible = false; shadow.visible = false;
+      session.addEventListener("end", () => {
+        session = null;
+        ui.classList.remove("hidden");
+        setStatus("Sessione terminata. Puoi rientrare quando vuoi.");
+        startBtn.textContent = "Rientra nell'esperienza";
+      }, {once:true});
+    }
+
+    /* ---------- Comportamenti ---------- */
+    function setMode(m, d){ S.mode = m; S.modeT = d; }
+
+    function findPerch(){
+      let best = null, bs = 0;
+      for (const pl of S.planes){
+        if (!pl.horizontal || pl.w*pl.d < 0.12) continue;
+        if (pl.center.y < 0.3 || pl.center.y > 1.4) continue;
+        if (!inArea(pl.center.x, pl.center.z)) continue;
+        const sc = Math.random();
+        if (sc > bs){ bs = sc; best = pl; }
+      }
+      return best;
+    }
+
+    function startDodge(pos, why){
+      dirV.set(pos.x-head.x, 0, pos.z-head.z);
+      if (dirV.lengthSq() < 1e-4) dirV.copy(fwd);
+      dirV.normalize();
+      sideV.set(-dirV.z, 0, dirV.x).multiplyScalar(Math.random() < 0.5 ? 1 : -1);
+      S.wp.copy(pos).addScaledVector(dirV, 0.5).addScaledVector(sideV, 1.0);
+      S.wp.y = THREE.MathUtils.clamp(pos.y + rand(-0.1, 0.3), CFG.minY, CFG.maxY);
+      if (!inArea(S.wp.x, S.wp.z)){
+        S.wp.addScaledVector(sideV, -2.0);
+        if (!inArea(S.wp.x, S.wp.z)) S.wp.set(S.center.x, S.wp.y, S.center.z);
+      }
+      S.flick = 1;          // scatto di sorpresa
+      S.perch = null;
+      setMode("dodge", 1.0);
+      S.dodgeCd = 1.8;
+    }
+
+    function updateSubjects(dt, t){
+      // Ogni ~16 s l'orbita passa da "anni 3-4" ad "anno 5" (se non stai guardando una materia)
+      M.cycle += dt;
+      if (M.sel < 0 && M.cycle > 16) M.dir = -1;
+      M.vis = THREE.MathUtils.clamp(M.vis + M.dir*dt/0.6, 0, 1);
+      if (M.dir < 0 && M.vis === 0){
+        M.sets[M.set].chips.forEach(c => c.m.visible=false);
+        M.set = 1 - M.set; M.dir = 1; M.cycle = 0; M.sel = -1;
+      }
+      const cur = M.sets[M.set];
+
+      // Sguardo: la materia più vicina al centro della vista; dopo 0,8 s si apre
+      let best = -1, bd = 0.99;
+      if (M.vis > 0.8) cur.chips.forEach((c,i) => {
+        c.m.getWorldPosition(tmp3).sub(head);
+        const d = tmp3.length(); if (d < 0.1) return;
+        const dot = gazeDir.dot(tmp3.divideScalar(d));
+        if (dot > bd){ bd = dot; best = i; }
+      });
+      if (best >= 0 && best === M.cand) M.dwell += dt; else { M.cand = best; M.dwell = 0; }
+      if (best >= 0 && M.dwell > 0.8 && M.sel !== best){
+        M.sel = best; M.cycle = 0; M.lose = 0;
+        detail.material.map = cur.chips[best].detail;
+        if (S.jumpT < 0) S.jumpT = 0;           // il logo reagisce con un saltino
+      }
+      // Resta aperta finché guardi la materia o il pannello
+      if (M.sel >= 0){
+        detail.getWorldPosition(tmp3).sub(head).normalize();
+        const keep = best === M.sel || gazeDir.dot(tmp3) > 0.97;
+        M.lose = keep ? 0 : M.lose + dt;
+        if (M.lose > 2.5) M.sel = -1;
+      }
+
+      // Orbita: rallenta quando una materia è selezionata
+      M.spd += ((M.sel >= 0 ? 0.04 : 0.35) - M.spd) * (1 - Math.exp(-dt*3));
+      M.ang += M.spd * dt;
+      cur.chips.forEach((c,i) => {
+        const a = M.ang + i*Math.PI/2;
+        c.m.visible = M.vis > 0.01;
+        c.m.position.set(Math.cos(a)*0.33, Math.sin(a)*0.33 + Math.sin(t*1.4+i)*0.01, Math.sin(a)*0.07);
+        c.s += ((i === M.sel ? 1.45 : 1) - c.s) * (1 - Math.exp(-dt*8));
+        c.m.scale.setScalar(Math.max(0.001, c.s*easeOutBack(M.vis)));
+      });
+      M.ds += ((M.sel >= 0 ? 1 : 0) - M.ds) * (1 - Math.exp(-dt*7));
+      detail.visible = M.ds > 0.02; detail.scale.setScalar(Math.max(0.001, M.ds));
+
+      // Alone e tavole seguono l'anno corrente
+      halo.material.color.lerp(cur.color, 1 - Math.exp(-dt*3));
+      halo.material.opacity = 0.45 + 0.15*Math.sin(t*2) + (M.sel >= 0 ? 0.2 : 0);
+      (pivot.userData.programBoards || []).forEach((b,i) => {
+        const mat = b.board.children[0].material, sc = b.board.scale.x;
+        mat.opacity += ((i === M.set ? 0.5 : 0.15) - mat.opacity) * (1 - Math.exp(-dt*3));
+        b.board.scale.setScalar(sc + ((i === M.set ? 1.06 : 0.94) - sc) * (1 - Math.exp(-dt*3)));
+      });
+    }
+
+    /* ---------- Aggiornamento per frame ---------- */
+    function update(dt, t, frame){
+      const refSpace = renderer.xr.getReferenceSpace();
+      const xrCam = renderer.xr.getCamera();
+      head.setFromMatrixPosition(xrCam.matrixWorld);
+      xrCam.getWorldDirection(gazeDir);
+      fwd.copy(gazeDir); fwd.y = 0;
+      if (fwd.lengthSq() < 1e-4) fwd.set(0,0,-1);
+      fwd.normalize();
+
+      if (!startTime) startTime = t;
+
+      if (!S.poly.length && refSpace && refSpace.boundsGeometry && refSpace.boundsGeometry.length >= 3){
+        S.poly = Array.from(refSpace.boundsGeometry, p => ({x:p.x, z:p.z}));
+      }
+      updatePlanes(frame, refSpace);
+
+      // Comparsa automatica
+      if (!S.spawned){
+        if (t - startTime < CFG.spawnDelay) return;
+        S.center.copy(head);
+        pivot.position.set(head.x + fwd.x*CFG.spawnDistance, 1.2, head.z + fwd.z*CFG.spawnDistance);
+        S.yaw = Math.atan2(head.x - pivot.position.x, head.z - pivot.position.z);
+        pickWaypoint();
+        S.spawned = true; S.spawnT = 0; S.prevHead.copy(head); S.initHead = true;
+        pivot.visible = true; shadow.visible = true;
+        setStatus("");
+      }
+
+      S.spawnT = Math.min(1, S.spawnT + dt/0.9);
+      const grow = easeOutBack(S.spawnT);
+      const pos = pivot.position;
+      const halfH = CFG.size * logo.scale.y * 0.5;
+
+      /* --- Misure: distanza, velocità con cui ti avvicini, sguardo --- */
+      const dHead = Math.hypot(pos.x-head.x, pos.z-head.z);
+      dirV.copy(pos).sub(head);
+      const dist3 = dirV.length();
+      dirV.normalize();
+      const headSpeedVec = tmp.copy(head).sub(S.prevHead).divideScalar(Math.max(dt, 1e-3));
+      S.prevHead.copy(head);
+      S.closing += (headSpeedVec.dot(dirV) - S.closing) * (1 - Math.exp(-dt*8));
+
+      S.dodgeCd = Math.max(0, S.dodgeCd - dt);
+      S.curiousCd = Math.max(0, S.curiousCd - dt);
+      S.greetCd = Math.max(0, S.greetCd - dt);
+      S.modeT -= dt;
+
+      /* --- Reazioni (hanno la precedenza) --- */
+      // Si sposta lateralmente solo se una persona si avvicina molto rapidamente.
+      if (S.mode !== "dodge" && S.dodgeCd <= 0 &&
+          (dist3 < 1.35 && S.closing > CFG.dodgeSpeedHead)){
+        startDodge(pos, "fast");
+      }
+      // Se ti avvicini troppo, arretra lentamente per mantenere spazio.
+      else if (S.mode !== "dodge" && S.mode !== "backoff" && dHead < CFG.shyDistance){
+        dirV.set(pos.x-head.x, 0, pos.z-head.z).normalize();
+        S.wp.copy(pos).addScaledVector(dirV, 1.0);
+        S.perch = null;
+        setMode("backoff", 1.6);
+      }
+
+      /* --- Logica per modalità --- */
+      let speed = CFG.speed;
+      let hover = false;
+      switch (S.mode){
+        case "dodge":
+          speed = CFG.fleeSpeed;
+          if (S.modeT <= 0){ setMode("wander", 0); S.pause = 0.6; }
+          break;
+        case "backoff":
+          speed = 0.18;
+          if (S.modeT <= 0){ setMode("wander", 0); S.pause = 0.8; }
+          break;
+        case "curious": {
+          speed = 0.16;
+          // orbita lentamente davanti a te mantenendo circa 1,8 m
+          const ang = Math.sin(t*0.7) * 0.6;
+          const c = Math.cos(ang), sn = Math.sin(ang);
+          S.wp.set(head.x + (S.curDir.x*c - S.curDir.z*sn)*1.8,
+                   THREE.MathUtils.clamp(head.y - 0.15 + Math.sin(t*1.3)*0.1, CFG.minY, CFG.maxY),
+                   head.z + (S.curDir.x*sn + S.curDir.z*c)*1.8);
+          if (S.modeT <= 0){ setMode("wander", 0); S.pause = 0.5; S.curiousCd = rand(...CFG.curiousEvery); }
+          break;
+        }
+        case "perch":
+          if (!S.perch){ setMode("wander", 0); break; }
+          if (S.perchPhase === "go"){
+            S.wp.copy(perchTarget);
+            if (pos.distanceTo(perchTarget) < 0.12){ S.perchPhase = "rest"; S.modeT = rand(5, 8); }
+          } else {
+            hover = true;                   // fermo sul tavolo
+            pos.lerp(perchTarget, 1 - Math.exp(-dt*4));
+            S.vel.multiplyScalar(Math.exp(-dt*6));
+            if (S.modeT <= 0){ S.perch = null; setMode("wander", 0); S.pause = 0.4; pickWaypoint(); }
+          }
+          break;
+        default: { // wander
+          if (S.pause > 0){
+            S.pause -= dt;
+            S.vel.multiplyScalar(Math.exp(-dt*3));
+            if (S.pause <= 0){
+              // Cosa fa dopo? Ti viene incontro, si posa, o esplora.
+              const far = dHead > 1.8;
+              if (S.curiousCd <= 0 && far){
+                S.curDir.set(pos.x-head.x, 0, pos.z-head.z).normalize();
+                setMode("curious", rand(5, 7));
+              } else {
+                const pl = Math.random() < CFG.perchChance ? findPerch() : null;
+                if (pl){
+                  S.perch = pl; S.perchPhase = "go";
+                  perchTarget.set(pl.center.x, pl.center.y + halfH + 0.02, pl.center.z);
+                  setMode("perch", 30);
+                } else pickWaypoint();
+              }
+            }
+          } else if (pos.distanceTo(S.wp) < 0.15){
+            S.pause = rand(1.5, 3.5);
+          }
+          // Se ti allontani troppo, ti raggiunge
+          if (dHead > CFG.roamRadius + 1.2){ pickWaypoint(); S.pause = 0.8; }
+        }
+      }
+
+      /* --- Movimento --- */
+      if (!hover && !(S.mode === "wander" && S.pause > 0)){
+        tmp.copy(S.wp).sub(pos);
+        const dist = tmp.length();
+        if (dist > 0.03){
+          tmp.normalize().multiplyScalar(Math.min(speed, dist*1.15 + 0.015));
+          S.vel.lerp(tmp, 1 - Math.exp(-dt*(S.mode === "dodge" ? 2.4 : 1.35)));
+        }
+        pos.addScaledVector(S.vel, dt);
+      }
+
+      /* --- Interazione con la stanza --- */
+      planeCollision(pos, S.vel, CFG.avoidMargin, true, S.mode === "perch");
+      if (!inArea(pos.x, pos.z) && S.mode !== "perch"){
+        tmp.set(S.center.x - pos.x, 0, S.center.z - pos.z).normalize();
+        S.vel.addScaledVector(tmp, dt*1.5);
+        pos.addScaledVector(tmp, dt*0.3);
+      }
+      pos.y = THREE.MathUtils.clamp(pos.y, S.mode === "perch" ? 0.15 : CFG.minY, CFG.maxY);
+
+      /* --- Sguardo: se lo fissi per un po' ti saluta --- */
+      const looking = gazeDir.dot(dirV) > 0.97 && dist3 < 3.5 && S.mode !== "dodge";
+      S.gazeT = looking ? S.gazeT + dt : 0;
+      if (S.gazeT > 1.3 && S.greetCd <= 0 && S.jumpT < 0){
+        S.jumpT = 0; S.greetCd = 12; S.gazeT = 0;
+      }
+
+      /* --- Orientamento --- */
+      const targetYaw = Math.atan2(head.x - pos.x, head.z - pos.z);
+      S.yaw += angDiff(S.yaw, targetYaw) * (1 - Math.exp(-dt*(S.mode === "dodge" ? 7 : 3)));
+
+      let jump = 0, spin = 0;
+      if (S.jumpT >= 0){
+        S.jumpT += dt/0.8;
+        jump = Math.sin(Math.min(S.jumpT,1)*Math.PI) * 0.22;
+        if (S.jumpT >= 1) S.jumpT = -1;
+      }
+      if (S.spinT >= 0){
+        S.spinT += dt/0.9;
+        const e = Math.min(S.spinT,1);
+        spin = (e*e*(3-2*e)) * Math.PI*2;
+        if (S.spinT >= 1) S.spinT = -1;
+      }
+      S.flick = Math.max(0, S.flick - dt*2.2);
+      const wob = S.flick * Math.sin(t*38) * 0.35;      // tremolio di sorpresa
+
+      const bob = (S.mode === "perch" && S.perchPhase === "rest" ? 0.004 : Math.sin(t*1.6)*0.035) + jump;
+      logo.position.y = bob;
+      for (const item of pivot.userData.programBoards || []){
+        item.board.position.y = item.baseY + Math.sin(t*1.7 + item.phase)*0.035;
+        item.board.rotation.z = (item.phase === 0 ? 0.035 : -0.035) + Math.sin(t*0.9 + item.phase)*0.018;
+      }
+      updateSubjects(dt, t);
+      pivot.rotation.y = S.yaw + spin;
+      pivot.rotation.x = THREE.MathUtils.clamp(-S.vel.y*0.5, -0.3, 0.3) + Math.sin(t*1.1)*0.03;
+      pivot.rotation.z = THREE.MathUtils.clamp(
+        -(S.vel.x*Math.cos(S.yaw) - S.vel.z*Math.sin(S.yaw))*0.6, -0.35, 0.35) + wob;
+      const curiousPulse = S.mode === "curious" ? 1 + Math.sin(t*5)*0.025 : 1;
+      pivot.scale.setScalar(Math.max(0.001, grow) * (1 + Math.sin(t*2.2)*0.012) * curiousPulse);
+
+      /* --- Ombra: sul pavimento, o sul tavolo quando è posato --- */
+      const gTarget = S.mode === "perch" && S.perchPhase === "rest" ? perchTarget.y - halfH - 0.02 : 0;
+      S.groundY += (gTarget - S.groundY) * (1 - Math.exp(-dt*5));
+      const h = Math.max(0, pos.y + bob - S.groundY);
+      shadow.position.set(pos.x, S.groundY + 0.005, pos.z);
+      const sw = CFG.size * (0.9 + h*0.25) * grow;
+      shadow.scale.set(sw, 1, sw);
+      shadow.material.opacity = THREE.MathUtils.clamp(0.75 - h*0.28, 0.12, 0.7);
+    }
+
+    function render(time, frame){
+      const t = time/1000;
+      if (last === null) last = t;
+      const dt = Math.min(t - last, 0.05); last = t;
+      if (frame && renderer.xr.isPresenting) update(dt, t, frame);
+      renderer.render(scene, camera);
+    }
+
+    /* ---------- Avvio ---------- */
+    async function checkXR(){
+      if (!navigator.xr){
+        setStatus("Questo browser non espone WebXR. Apri il sito nel browser del Meta Quest.");
+        return;
+      }
+      const ok = await navigator.xr.isSessionSupported("immersive-ar").catch(() => false);
+      startBtn.disabled = !ok;
+      if (ok){
+        startBtn.textContent = "Entra nella realtà mista";
+        setStatus("Pronto. Il logo compare da solo: guarda una materia per un secondo e si apre.");
+      } else {
+        startBtn.textContent = "Realtà mista non disponibile";
+        setStatus("La modalità immersive-ar non è disponibile in questo browser.");
+      }
+    }
+    startBtn.addEventListener("click", startAR);
+    checkXR();
+  </script>
+</body>
+</html>
