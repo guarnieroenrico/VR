@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>ISIS Matese — Orientamento AR</title>
+  <style>
+    html,body{margin:0;height:100%;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#0b1020;color:#fff}
+    body{display:flex;align-items:center;justify-content:center}
+    .panel{width:min(680px,calc(100% - 32px));padding:28px;border-radius:24px;background:rgba(20,28,48,.94);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+    h1{margin:0 0 8px;font-size:clamp(28px,6vw,44px)}
+    p{color:#cbd5e1;line-height:1.55}
+    button{border:0;border-radius:14px;padding:14px 18px;font-size:16px;font-weight:700;cursor:pointer;background:#fff;color:#101827}
+    button:disabled{opacity:.55;cursor:not-allowed}
+    #status{margin-top:14px;font-size:14px;color:#aebbd0;min-height:22px}
+    #hint{margin-top:18px;padding:14px;border-radius:14px;background:rgba(255,255,255,.07);font-size:14px;line-height:1.45}
+    .hidden{display:none}
+  </style>
+</head>
+<body>
+  <main class="panel" id="ui">
+    <h1>ISIS Matese · Orientamento</h1>
+    <p>Prima demo: entra in modalità realtà mista e posiziona il logo della scuola sul pavimento della stanza.</p>
+    <button id="start" disabled>Controllo WebXR…</button>
+    <div id="status">Sto verificando il supporto del visore…</div>
+    <div id="hint">Sul Meta Quest 2 la modalità passthrough del Browser è in scala di grigi. Muovi il visore verso il pavimento e premi il trigger/controller quando compare il reticolo.</div>
+  </main>
+
+  <script type="module">
+    import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
+    import { ARButton } from "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/webxr/ARButton.js";
+
+    const start = document.querySelector("#start");
+    const status = document.querySelector("#status");
+    const ui = document.querySelector("#ui");
+
+    let camera, scene, renderer, controller, reticle, logoMesh;
+    let hitTestSource = null;
+    let hitTestSourceRequested = false;
+    let session = null;
+
+    function setStatus(t){ status.textContent = t; }
+
+    async function checkXR(){
+      if (!navigator.xr) {
+        start.disabled = true;
+        setStatus("Questo browser non espone WebXR. Apri il sito nel Meta Quest Browser.");
+        return;
+      }
+      const ok = await navigator.xr.isSessionSupported("immersive-ar").catch(()=>false);
+      start.disabled = !ok;
+      setStatus(ok
+        ? "Meta Quest / WebXR AR disponibile. Premi il pulsante per iniziare."
+        : "La modalità immersive-ar non è disponibile in questo browser.");
+    }
+
+    function init(){
+      scene = new THREE.Scene();
+
+      camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.01, 20);
+
+      renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+      renderer.setSize(innerWidth, innerHeight);
+      renderer.xr.enabled = true;
+      renderer.setClearColor(0x000000, 0);
+      document.body.appendChild(renderer.domElement);
+
+      const hemi = new THREE.HemisphereLight(0xffffff, 0x888888, 1.4);
+      scene.add(hemi);
+
+      reticle = new THREE.Mesh(
+        new THREE.RingGeometry(0.09,0.12,32).rotateX(-Math.PI/2),
+        new THREE.MeshBasicMaterial({color:0xffffff})
+      );
+      reticle.matrixAutoUpdate = false;
+      reticle.visible = false;
+      scene.add(reticle);
+
+      const tex = new THREE.TextureLoader().load("./logo.png");
+      tex.colorSpace = THREE.SRGBColorSpace;
+
+      const material = new THREE.MeshBasicMaterial({
+        map:tex,
+        transparent:true,
+        side:THREE.DoubleSide
+      });
+
+      // Logo "fisico" nello spazio: un pannello leggermente inclinato verso l'utente.
+      const geometry = new THREE.PlaneGeometry(0.72,0.72);
+      logoMesh = new THREE.Mesh(geometry, material);
+      logoMesh.visible = false;
+      scene.add(logoMesh);
+
+      // Movimento leggero dopo il posizionamento.
+      logoMesh.userData.baseY = 0;
+      logoMesh.userData.t = 0;
+
+      controller = renderer.xr.getController(0);
+      controller.addEventListener("select", onSelect);
+      scene.add(controller);
+
+      renderer.setAnimationLoop(render);
+
+      start.replaceWith(ARButton.createButton(renderer, {
+        requiredFeatures: ["hit-test"],
+        optionalFeatures: ["plane-detection","anchors","dom-overlay"],
+        domOverlay: {root: document.body},
+        onSessionStart: () => {
+          session = renderer.xr.getSession();
+          ui.classList.add("hidden");
+          setStatus("Sessione AR avviata.");
+        },
+        onSessionEnd: () => {
+          session = null;
+          hitTestSource = null;
+          hitTestSourceRequested = false;
+          ui.classList.remove("hidden");
+          setStatus("Sessione terminata.");
+          if (logoMesh) logoMesh.visible = false;
+        }
+      }));
+    }
+
+    function onSelect(){
+      if (!reticle.visible || !logoMesh) return;
+      logoMesh.position.setFromMatrixPosition(reticle.matrix);
+      // Il logo viene tenuto verticale, con una piccola inclinazione.
+      logoMesh.rotation.set(-0.12, 0, 0);
+      logoMesh.visible = true;
+      logoMesh.userData.t = 0;
+    }
+
+    function render(time, frame){
+      if (frame && renderer.xr.isPresenting) {
+        const referenceSpace = renderer.xr.getReferenceSpace();
+        const session = renderer.xr.getSession();
+
+        if (!hitTestSourceRequested) {
+          session.requestReferenceSpace("viewer").then((referenceSpace)=>{
+            session.requestHitTestSource({space:referenceSpace}).then((source)=>{
+              hitTestSource = source;
+            });
+          });
+          session.addEventListener("end", ()=>{
+            hitTestSourceRequested = false;
+            hitTestSource = null;
+          }, {once:true});
+          hitTestSourceRequested = true;
+        }
+
+        if (hitTestSource) {
+          const hits = frame.getHitTestResults(hitTestSource);
+          if (hits.length) {
+            const pose = hits[0].getPose(referenceSpace);
+            reticle.visible = true;
+            reticle.matrix.fromArray(pose.transform.matrix);
+          } else {
+            reticle.visible = false;
+          }
+        }
+
+        if (logoMesh?.visible) {
+          logoMesh.userData.t += 0.035;
+          logoMesh.position.y += Math.sin(logoMesh.userData.t) * 0.0009;
+          logoMesh.rotation.y = Math.sin(logoMesh.userData.t * 0.55) * 0.12;
+        }
+      }
+      renderer.render(scene,camera);
+    }
+
+    addEventListener("resize", ()=>{
+      if (!camera || !renderer) return;
+      camera.aspect = innerWidth/innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth,innerHeight);
+    });
+
+    start.addEventListener("click", ()=>{
+      if (!renderer) init();
+    });
+
+    checkXR();
+    if (navigator.xr) {
+      navigator.xr.isSessionSupported("immersive-ar").then(ok=>{
+        if(ok) {
+          start.disabled = false;
+          start.textContent = "Avvia esperienza AR";
+          setStatus("Pronto. Apri questa pagina nel Meta Quest Browser.");
+        }
+      });
+    }
+  </script>
+</body>
+</html>
