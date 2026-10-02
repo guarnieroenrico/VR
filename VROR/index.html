@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>ISISS Matese — Orientamento in realtà mista</title>
+  <style>
+    :root{--navy:#0d1630;--ink:#f4f6fb;--muted:#b4bfd6;--orange:#ff7a1a;--pink:#e6338f;--teal:#12b5c9;--green:#2fcf7a}
+    html{height:100%}body{min-height:100%}html,body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--navy);color:var(--ink)}
+    body{display:flex;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom))}
+    .panel{margin:auto;width:min(860px,100%);display:grid;grid-template-columns:minmax(120px,220px) 1fr;gap:28px;align-items:center;padding:28px;border-radius:28px;background:#131d3d;box-shadow:0 24px 70px rgba(0,0,0,.45)}
+    .panel img{width:100%;height:auto;display:block}
+    h1{margin:0 0 10px;font-size:clamp(26px,5vw,40px);line-height:1.1}
+    p{margin:0 0 18px;color:var(--muted);line-height:1.55;max-width:46ch}
+    button{border:0;border-radius:16px;padding:15px 22px;font-size:17px;font-weight:800;cursor:pointer;color:#0d1630;background:linear-gradient(100deg,var(--orange),var(--pink) 45%,var(--teal) 80%,var(--green))}
+    button:focus-visible{outline:3px solid #fff;outline-offset:3px}
+    button:disabled{opacity:.5;cursor:not-allowed;filter:grayscale(.6)}
+    #status{margin-top:14px;font-size:14px;color:var(--muted);min-height:22px}
+    .gallery{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:0;padding:0}
+    .gallery figure{margin:0;border-radius:20px;overflow:hidden;background:#0d1630;border:2px solid rgba(255,255,255,.12);transition:transform .2s,border-color .2s}
+    .gallery figure:hover{transform:translateY(-3px);border-color:var(--teal)}
+    .gallery a{display:block;line-height:0}
+    .gallery img{width:100%;height:auto;display:block}
+    .gallery figcaption{padding:12px 14px;font-size:14px;line-height:1.4;color:var(--muted)}
+    .gallery strong{display:block;color:var(--ink);font-size:16px;margin-bottom:2px}
+    .hidden{display:none}
+    @media (max-width:560px){.gallery{grid-template-columns:1fr}.panel{grid-template-columns:1fr;text-align:center}.panel img{max-width:180px;margin:0 auto}p{margin-inline:auto}}
+  </style>
+</head>
+<body>
+  <main class="panel" id="ui">
+    <img src="./logo.png" alt="Logo ISISS Matese">
+    <div>
+      <h1>Il logo è già nella tua stanza</h1>
+      <p>Entra nella realtà mista: il logo compare da solo, si muove nello spazio, evita pareti e mobili, ti viene incontro, si scansa se ti avvicini di corsa si posa sui tavoli e ti mostra i programmi di studio del 3°, 4° e 5° anno.</p>
+      <button id="start" disabled>Controllo WebXR…</button>
+      <div id="status" role="status">Sto verificando il supporto del visore…</div>
+    </div>
+    <section class="gallery" aria-label="Programmi di studio, Informatica industriale">
+      <figure>
+        <a href="./programma-3-4-anno.jpg" target="_blank" rel="noopener"><img src="./programma-3-4-anno.jpg" alt="Programma di studio di Informatica industriale, 3° e 4° anno" loading="lazy"></a>
+        <figcaption><strong>3° e 4° anno</strong>Informatica, TPSI, Sistemi e reti, Telecomunicazioni</figcaption>
+      </figure>
+      <figure>
+        <a href="./programma-5-anno.jpg" target="_blank" rel="noopener"><img src="./programma-5-anno.jpg" alt="Programma di studio di Informatica industriale, 5° anno" loading="lazy"></a>
+        <figcaption><strong>5° anno</strong>Informatica avanzata, TPSI, Sistemi e reti avanzati, Gestione e progettazione</figcaption>
+      </figure>
+    </section>
+  </main>
+
+  <script type="module">
+    import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
+
+    const startBtn = document.querySelector("#start");
+    const statusEl = document.querySelector("#status");
+    const ui = document.querySelector("#ui");
+    const setStatus = t => statusEl.textContent = t;
+
+    /* ---------- Parametri regolabili ---------- */
+    const CFG = {
+      size: 0.6,            // larghezza del logo in metri
+      spawnDelay: 1.2,      // secondi prima che compaia
+      spawnDistance: 1.6,   // distanza iniziale davanti a te
+      minY: 0.45, maxY: 1.9,// altezza di volo
+      speed: 0.35,          // velocità di crociera (m/s)
+      fleeSpeed: 0.95,      // velocità quando si scansa
+      roamRadius: 2.8,      // raggio massimo attorno a te
+      fallbackRadius: 2.4,  // area se il visore non ha i confini
+      avoidMargin: 0.38,    // distanza minima da pareti/mobili
+      shyDistance: 0.55,    // se ti avvicini piano, resta fermo fino a qui poi arretra
+      dodgeSpeedHead: 0.9,  // velocità (m/s) con cui ti avvicini per farlo scansare
+      dodgeSpeedHand: 1.6,  // idem per la mano
+      sniffDistance: 0.9,   // mano ferma entro questa distanza = viene ad annusarla
+      curiousEvery: [9,16], // ogni quanti secondi può venirti incontro
+      perchChance: 0.35     // probabilità di posarsi su un tavolo/mensola
+    };
+
+    /* ---------- Stato ---------- */
+    let scene, camera, renderer, pivot, logo, shadow;
+    let session = null, last = null, startTime = 0;
+    const S = {
+      spawned:false, spawnT:0, wp:new THREE.Vector3(), pause:0,
+      vel:new THREE.Vector3(), flee:0, jumpT:-1, spinT:-1, yaw:0,
+      center:new THREE.Vector3(), poly:[], planes:[],
+      mode:"wander", modeT:0, prevHead:new THREE.Vector3(), closing:0,
+      curiousCd:6, greetCd:0, gazeT:0, flick:0, perch:null, perchPhase:"",
+      groundY:0, sniffLost:0, dodgeCd:0, curDir:new THREE.Vector3(0,0,1), initHead:false,
+      presenting:false, focus:-1, pAnchor:new THREE.Vector3(), pRight:new THREE.Vector3(), presT:0, hintT:0, autoOffered:false
+    };
+    const panels = [], rc = new THREE.Raycaster(), panelV = new THREE.Vector3(), toHead = new THREE.Vector3();
+    let hint = null, bandTex = null, hovUv = null;
+    const PANEL_SIZE = 0.85;
+
+    /* ---------- Effetti: particelle e suoni ---------- */
+    const NP = 420, pPos = new Float32Array(NP*3), pCol = new Float32Array(NP*3), pVel = new Float32Array(NP*3),
+          pBase = new Float32Array(NP*3), pLife = new Float32Array(NP);
+    const PAL = [[1,.48,.1],[.9,.2,.56],[.07,.71,.79],[.18,.81,.48],[1,.85,.25]];
+    let pHead = 0, pts = null; const orbs = [];
+    function emit(x, y, z, n, sp, up = 0){
+      for (let i=0;i<n;i++){
+        const k = pHead; pHead = (pHead+1) % NP;
+        const c = PAL[(Math.random()*PAL.length)|0];
+        const a = rand(0, 6.283), b = rand(-1,1), r = Math.sqrt(1-b*b), v = sp*rand(.3,1);
+        pPos[k*3] = x; pPos[k*3+1] = y; pPos[k*3+2] = z;
+        pVel[k*3] = Math.cos(a)*r*v; pVel[k*3+1] = b*v + up; pVel[k*3+2] = Math.sin(a)*r*v;
+        pBase[k*3] = c[0]; pBase[k*3+1] = c[1]; pBase[k*3+2] = c[2];
+        pLife[k] = rand(.7, 1.6);
+      }
+    }
+    function stepParticles(dt){
+      const d = Math.exp(-dt*1.5);
+      for (let k=0;k<NP;k++){
+        const L = pLife[k];
+        if (L <= 0){ pCol[k*3] = pCol[k*3+1] = pCol[k*3+2] = 0; continue; }
+        pLife[k] = L - dt;
+        const f = Math.min(1, L);
+        for (let j=0;j<3;j++){
+          pVel[k*3+j] *= d; pPos[k*3+j] += pVel[k*3+j]*dt; pCol[k*3+j] = pBase[k*3+j]*f;
+        }
+        pVel[k*3+1] -= dt*0.1;
+      }
+      pts.geometry.attributes.position.needsUpdate = true; pts.geometry.attributes.color.needsUpdate = true;
+    }
+    let actx = null;
+    function tone(f, at, dur, type = "sine", vol = 0.1){
+      if (!actx) return;
+      const o = actx.createOscillator(), g = actx.createGain(), t0 = actx.currentTime + at;
+      o.type = type; o.frequency.setValueAtTime(f, t0);
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+      o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0+dur+0.05);
+    }
+    const sfx = {
+      spawn: () => [523,659,784,1047,1319].forEach((f,i) => tone(f, i*0.09, 0.5, "sine", 0.09)),
+      open:  () => [392,587,784,988].forEach((f,i) => tone(f, i*0.07, 0.4, "triangle", 0.08)),
+      pop:   () => { tone(660,0,0.12,"sine",0.1); tone(990,0.06,0.18,"sine",0.08); },
+      boop:  () => { tone(520,0,0.12,"square",0.04); tone(330,0.08,0.18,"square",0.04); },
+      click: () => tone(880,0,0.08,"triangle",0.07)
+    };
+    const PANEL_DEFS = [
+      {src:"./programma-3-4-anno.jpg", side:-1},
+      {src:"./programma-5-anno.jpg",   side: 1}
+    ];
+    const gazeDir = new THREE.Vector3(), dirV = new THREE.Vector3(), sideV = new THREE.Vector3();
+    const perchTarget = new THREE.Vector3();
+    const head = new THREE.Vector3(), fwd = new THREE.Vector3();
+    const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3();
+    const controllers = [];
+
+    /* ---------- Utilità ---------- */
+    const rand = (a,b) => a + Math.random()*(b-a);
+    const easeOutBack = t => { const c=1.70158; return 1 + (c+1)*Math.pow(t-1,3) + c*Math.pow(t-1,2); };
+    const angDiff = (a,b) => Math.atan2(Math.sin(b-a), Math.cos(b-a));
+
+    function pointInPoly(x, z, poly){
+      let inside = false;
+      for (let i=0,j=poly.length-1;i<poly.length;j=i++){
+        const a=poly[i], b=poly[j];
+        if ((a.z>z)!==(b.z>z) && x < (b.x-a.x)*(z-a.z)/(b.z-a.z)+a.x) inside=!inside;
+      }
+      return inside;
+    }
+    function inArea(x, z){
+      if (S.poly.length >= 3) return pointInPoly(x, z, S.poly);
+      return Math.hypot(x-S.center.x, z-S.center.z) < CFG.fallbackRadius;
+    }
+
+    /* ---------- Piani rilevati nella stanza (pareti, tavoli, pavimento) ---------- */
+    function updatePlanes(frame, refSpace){
+      S.planes.length = 0;
+      const set = frame.detectedPlanes;
+      if (!set) return;
+      for (const plane of set){
+        const pose = frame.getPose(plane.planeSpace, refSpace);
+        if (!pose) continue;
+        const m = new THREE.Matrix4().fromArray(pose.transform.matrix);
+        let minX=1e9,maxX=-1e9,minZ=1e9,maxZ=-1e9;
+        for (const p of plane.polygon){
+          if (p.x<minX) minX=p.x; if (p.x>maxX) maxX=p.x;
+          if (p.z<minZ) minZ=p.z; if (p.z>maxZ) maxZ=p.z;
+        }
+        const nrm = new THREE.Vector3(m.elements[4], m.elements[5], m.elements[6]).normalize();
+        S.planes.push({
+          inv: m.clone().invert(),
+          normal: nrm,
+          center: new THREE.Vector3((minX+maxX)/2, 0, (minZ+maxZ)/2).applyMatrix4(m),
+          w: maxX-minX, d: maxZ-minZ,
+          horizontal: Math.abs(nrm.y) > 0.85,
+          minX, maxX, minZ, maxZ
+        });
+      }
+    }
+    // Se apply=true spinge fuori il logo e gli toglie la velocità verso il piano.
+    function planeCollision(pos, vel, margin, apply, skipHorizontal=false){
+      let hit = false;
+      for (const pl of S.planes){
+        if (skipHorizontal && pl.horizontal) continue;
+        tmp2.copy(pos).applyMatrix4(pl.inv);
+        if (Math.abs(tmp2.y) < margin &&
+            tmp2.x > pl.minX-margin && tmp2.x < pl.maxX+margin &&
+            tmp2.z > pl.minZ-margin && tmp2.z < pl.maxZ+margin){
+          hit = true;
+          if (apply){
+            const side = tmp2.y >= 0 ? 1 : -1;
+            const n = tmp.copy(pl.normal).multiplyScalar(side);
+            pos.addScaledVector(n, (margin - Math.abs(tmp2.y)) * 0.25);
+            const into = vel.dot(n);
+            if (into < 0) vel.addScaledVector(n, -into);
+            S.pause = Math.min(S.pause, 0.2);
+            S.wp.copy(pos).addScaledVector(n, 1.0); // si sposta lontano dall'ostacolo
+            S.wp.y = THREE.MathUtils.clamp(S.wp.y, CFG.minY, CFG.maxY);
+          }
+        }
+      }
+      return hit;
+    }
+
+    /* ---------- Scelta della prossima meta ---------- */
+    function pickWaypoint(){
+      for (let i=0;i<40;i++){
+        const a = rand(0, Math.PI*2), r = rand(0.8, CFG.roamRadius);
+        const x = head.x + Math.cos(a)*r, z = head.z + Math.sin(a)*r, y = rand(CFG.minY+0.15, CFG.maxY-0.3);
+        if (!inArea(x, z)) continue;
+        tmp.set(x, y, z);
+        if (planeCollision(tmp, S.vel, CFG.avoidMargin*1.6, false)) continue;
+        S.wp.copy(tmp);
+        return;
+      }
+      S.wp.set(head.x, 1.2, head.z).addScaledVector(fwd, 1.2); // piano B: davanti a te
+    }
+
+    /* ---------- Creazione scena ---------- */
+    function init(){
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.01, 30);
+
+      renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+      renderer.setSize(innerWidth, innerHeight);
+      renderer.setClearColor(0x000000, 0);
+      renderer.xr.enabled = true;
+      renderer.xr.setReferenceSpaceType("local-floor");
+      document.body.appendChild(renderer.domElement);
+
+      // Logo
+      const tex = new THREE.TextureLoader().load("./logo.png", t => {
+        logo.scale.y = t.image.height / t.image.width;
+      });
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 4;
+      logo = new THREE.Mesh(
+        new THREE.PlaneGeometry(CFG.size, CFG.size),
+        new THREE.MeshBasicMaterial({map:tex, transparent:true, alphaTest:0.04, side:THREE.DoubleSide})
+      );
+      pivot = new THREE.Group();
+      pivot.add(logo);
+      pivot.rotation.order = "YXZ";
+      pivot.visible = false;
+      scene.add(pivot);
+
+      // Spessore 3D: strati scuri dietro il logo, visibili quando ruota
+      for (let i=1;i<=6;i++){
+        const v = 0.6 - i*0.07;
+        const l = new THREE.Mesh(logo.geometry, new THREE.MeshBasicMaterial({map:tex, color:new THREE.Color(v,v,v+0.05), transparent:true, alphaTest:0.04, side:THREE.DoubleSide}));
+        l.position.z = -i*0.004; logo.add(l);
+      }
+      // Tre sfere luminose in orbita (i colori dei tre indirizzi)
+      [0xff7a1a, 0x12b5c9, 0xe6338f].forEach(c => {
+        const o = new THREE.Mesh(new THREE.SphereGeometry(0.02,12,12), new THREE.MeshBasicMaterial({color:c}));
+        pivot.add(o); orbs.push(o);
+      });
+      // Scintille
+      const pg = new THREE.BufferGeometry();
+      pg.setAttribute("position", new THREE.BufferAttribute(pPos,3));
+      pg.setAttribute("color", new THREE.BufferAttribute(pCol,3));
+      const dc = document.createElement("canvas"); dc.width = dc.height = 64;
+      const dg = dc.getContext("2d"), dgr = dg.createRadialGradient(32,32,0,32,32,32);
+      dgr.addColorStop(0,"#fff"); dgr.addColorStop(1,"rgba(255,255,255,0)"); dg.fillStyle = dgr; dg.fillRect(0,0,64,64);
+      pts = new THREE.Points(pg, new THREE.PointsMaterial({size:0.045, map:new THREE.CanvasTexture(dc), vertexColors:true,
+        transparent:true, blending:THREE.AdditiveBlending, depthWrite:false}));
+      pts.frustumCulled = false; scene.add(pts);
+
+      // Pannelli dei programmi (angoli arrotondati + bordo con i colori del logo)
+      const panelTexture = src => {
+        const c = document.createElement("canvas"); c.width = c.height = 1024;
+        const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+        const img = new Image();
+        img.onload = () => {
+          const g = c.getContext("2d"), r = 70;
+          g.save(); g.beginPath(); g.roundRect(6,6,1012,1012,r); g.clip(); g.drawImage(img,0,0,1024,1024); g.restore();
+          const gr = g.createLinearGradient(0,0,1024,1024);
+          [[0,"#ff7a1a"],[.35,"#e6338f"],[.7,"#12b5c9"],[1,"#2fcf7a"]].forEach(([o,col]) => gr.addColorStop(o,col));
+          g.lineWidth = 12; g.strokeStyle = gr; g.beginPath(); g.roundRect(6,6,1012,1012,r); g.stroke();
+          tex.needsUpdate = true;
+        };
+        img.src = src; return tex;
+      };
+      const hc = document.createElement("canvas"); hc.width = hc.height = 128;
+      const hg = hc.getContext("2d"), hgr = hg.createRadialGradient(64,64,10,64,64,64);
+      hgr.addColorStop(0,"rgba(40,200,230,.55)"); hgr.addColorStop(1,"rgba(40,200,230,0)");
+      hg.fillStyle = hgr; hg.fillRect(0,0,128,128);
+      const haloTex = new THREE.CanvasTexture(hc);
+      const mk = document.createElement("canvas"); mk.width = mk.height = 256;
+      const mg = mk.getContext("2d"); mg.fillStyle = "#000"; mg.fillRect(0,0,256,256);
+      mg.fillStyle = "#fff"; mg.beginPath(); mg.roundRect(2,2,252,252,18); mg.fill();
+      const maskTex = new THREE.CanvasTexture(mk);
+      const bc = document.createElement("canvas"); bc.width = 512; bc.height = 8;
+      const bg = bc.getContext("2d"), bgr = bg.createLinearGradient(0,0,512,0);
+      [[0,"#000"],[.34,"#000"],[.5,"#fff"],[.66,"#000"],[1,"#000"]].forEach(([o,c]) => bgr.addColorStop(o,c));
+      bg.fillStyle = bgr; bg.fillRect(0,0,512,8);
+      bandTex = new THREE.CanvasTexture(bc); bandTex.wrapS = bandTex.wrapT = THREE.RepeatWrapping;
+      bandTex.center.set(.5,.5); bandTex.rotation = 0.7;
+      PANEL_DEFS.forEach(d => {
+        const group = new THREE.Group();
+        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(PANEL_SIZE,PANEL_SIZE),
+          new THREE.MeshBasicMaterial({map:panelTexture(d.src), transparent:true, alphaTest:0.02, side:THREE.DoubleSide, toneMapped:false}));
+        const halo = new THREE.Mesh(new THREE.PlaneGeometry(PANEL_SIZE*1.45,PANEL_SIZE*1.45),
+          new THREE.MeshBasicMaterial({map:haloTex, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false}));
+        halo.position.z = -0.02;
+        const shine = new THREE.Mesh(new THREE.PlaneGeometry(PANEL_SIZE,PANEL_SIZE),
+          new THREE.MeshBasicMaterial({map:bandTex, alphaMap:maskTex, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false, opacity:0.55}));
+        shine.position.z = 0.004;
+        const tilt = new THREE.Group(); tilt.add(halo, mesh, shine);
+        group.add(tilt); group.visible = false; scene.add(group);
+        panels.push({group, tilt, mesh, side:d.side, pos:new THREE.Vector3(), scale:0.02, yaw:0, delay:0});
+      });
+      const kc = document.createElement("canvas"); kc.width = 1024; kc.height = 96;
+      const kg = kc.getContext("2d");
+      kg.fillStyle = "rgba(13,22,48,.88)"; kg.beginPath(); kg.roundRect(0,0,1024,96,48); kg.fill();
+      kg.fillStyle = "#f4f6fb"; kg.font = "600 38px system-ui,sans-serif"; kg.textAlign = "center"; kg.textBaseline = "middle";
+      kg.fillText("Tocca un pannello per ingrandirlo · tocca il logo per chiudere", 512, 50);
+      hint = new THREE.Mesh(new THREE.PlaneGeometry(0.95,0.089),
+        new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(kc), transparent:true, depthWrite:false}));
+      hint.visible = false; scene.add(hint);
+
+      // Ombra morbida sul pavimento: dà l'impressione che il logo sia davvero nella stanza
+      const c = document.createElement("canvas"); c.width = c.height = 128;
+      const g = c.getContext("2d");
+      const grad = g.createRadialGradient(64,64,4,64,64,64);
+      grad.addColorStop(0,"rgba(0,0,0,.55)"); grad.addColorStop(1,"rgba(0,0,0,0)");
+      g.fillStyle = grad; g.fillRect(0,0,128,128);
+      shadow = new THREE.Mesh(
+        new THREE.PlaneGeometry(1,1).rotateX(-Math.PI/2),
+        new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c), transparent:true, depthWrite:false})
+      );
+      shadow.visible = false;
+      scene.add(shadow);
+
+      // Controller / mani: tocco = salto e giro
+      for (let i=0;i<2;i++){
+        const ctl = renderer.xr.getController(i);
+        ctl.userData.connected = false;
+        const ray = new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0,0,-2.5)]),
+          new THREE.LineBasicMaterial({color:0xffffff, transparent:true, opacity:0.55}));
+        ray.visible = false; ctl.add(ray);
+        ctl.addEventListener("connected", () => { ctl.userData.connected = true; ray.visible = true; });
+        ctl.addEventListener("disconnected", () => { ctl.userData.connected = false; ray.visible = false; });
+        ctl.addEventListener("select", onSelect);
+        scene.add(ctl);
+        controllers.push(ctl);
+      }
+
+      renderer.setAnimationLoop(render);
+      addEventListener("resize", () => {
+        camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+      });
+    }
+
+    function setRay(ctl){
+      rc.ray.origin.setFromMatrixPosition(ctl.matrixWorld);
+      rc.ray.direction.set(0,0,-1).transformDirection(ctl.matrixWorld);
+    }
+    function onSelect(e){
+      if (!S.spawned) return;
+      const ctl = e.target; setRay(ctl);
+      if (S.presenting){
+        const hit = rc.intersectObjects(panels.map(p => p.mesh), false)[0];
+        if (hit){
+          const i = panels.findIndex(p => p.mesh === hit.object);
+          S.focus = S.focus === i ? -1 : i;
+          sfx.click(); emit(panels[i].pos.x, panels[i].pos.y, panels[i].pos.z, 40, 0.9);
+          return;
+        }
+      }
+      const near = rc.ray.distanceSqToPoint(pivot.position) < 0.33*0.33 ||
+                   tmp2.setFromMatrixPosition(ctl.matrixWorld).distanceTo(pivot.position) < 0.35;
+      if (near){
+        S.jumpT = 0; S.spinT = 0;
+        emit(pivot.position.x, pivot.position.y, pivot.position.z, 90, 1.5); sfx.pop();
+        S.presenting ? endPresent() : startPresent();
+      }
+    }
+    function startPresent(){
+      S.presenting = true; S.focus = -1; S.hintT = 10; S.presT = performance.now()/1000;
+      let d = 1.8;
+      for (; d > 1.0; d -= 0.2){
+        if (inArea(head.x + fwd.x*d, head.z + fwd.z*d)) break;
+      }
+      S.pAnchor.set(head.x + fwd.x*d, Math.max(head.y - 0.12, 0.9), head.z + fwd.z*d);
+      S.pRight.set(-fwd.z, 0, fwd.x);
+      panels.forEach((p, i) => {
+        p.group.visible = true; p.pos.copy(pivot.position); p.scale = 0.02; p.delay = i*0.25;
+        p.yaw = Math.atan2(head.x - p.pos.x, head.z - p.pos.z);
+      });
+      emit(S.pAnchor.x, S.pAnchor.y, S.pAnchor.z, 170, 1.9, 0.3); sfx.open();
+      S.perch = null; setMode("present", 9999);
+    }
+    function endPresent(){ S.presenting = false; S.focus = -1; }
+
+    /* ---------- Sessione AR ---------- */
+    async function startAR(){
+      if (!renderer) init();
+      try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch {}
+      try {
+        session = await navigator.xr.requestSession("immersive-ar", {
+          optionalFeatures: ["local-floor","bounded-floor","plane-detection","mesh-detection","hit-test","anchors","hand-tracking"]
+        });
+      } catch (e) {
+        setStatus("Impossibile avviare la sessione AR: " + e.message);
+        return;
+      }
+      await renderer.xr.setSession(session);
+      ui.classList.add("hidden");
+      last = null; startTime = 0;
+      Object.assign(S, {presenting:false, focus:-1, autoOffered:false, spawned:false, spawnT:0, pause:0, flee:0, jumpT:-1, spinT:-1, planes:[], poly:[],
+        mode:"wander", modeT:0, closing:0, curiousCd:6, greetCd:0, gazeT:0, flick:0, perch:null,
+        perchPhase:"", groundY:0, sniffLost:0, dodgeCd:0, initHead:false});
+      S.vel.set(0,0,0);
+      pivot.visible = false; shadow.visible = false;
+      panels.forEach(p => p.group.visible = false); if (hint) hint.visible = false;
+      session.addEventListener("end", () => {
+        session = null;
+        ui.classList.remove("hidden");
+        setStatus("Sessione terminata. Puoi rientrare quando vuoi.");
+        startBtn.textContent = "Rientra nell'esperienza";
+      }, {once:true});
+    }
+
+    /* ---------- Comportamenti ---------- */
+    function setMode(m, d){ S.mode = m; S.modeT = d; }
+
+    function findPerch(){
+      let best = null, bs = 0;
+      for (const pl of S.planes){
+        if (!pl.horizontal || pl.w*pl.d < 0.12) continue;
+        if (pl.center.y < 0.3 || pl.center.y > 1.4) continue;
+        if (!inArea(pl.center.x, pl.center.z)) continue;
+        const sc = Math.random();
+        if (sc > bs){ bs = sc; best = pl; }
+      }
+      return best;
+    }
+
+    function startDodge(pos, why){
+      dirV.set(pos.x-head.x, 0, pos.z-head.z);
+      if (dirV.lengthSq() < 1e-4) dirV.copy(fwd);
+      dirV.normalize();
+      sideV.set(-dirV.z, 0, dirV.x).multiplyScalar(Math.random() < 0.5 ? 1 : -1);
+      S.wp.copy(pos).addScaledVector(dirV, 0.5).addScaledVector(sideV, 1.0);
+      S.wp.y = THREE.MathUtils.clamp(pos.y + rand(-0.1, 0.3), CFG.minY, CFG.maxY);
+      if (!inArea(S.wp.x, S.wp.z)){
+        S.wp.addScaledVector(sideV, -2.0);
+        if (!inArea(S.wp.x, S.wp.z)) S.wp.set(S.center.x, S.wp.y, S.center.z);
+      }
+      S.flick = 1;          // scatto di sorpresa
+      emit(pos.x, pos.y, pos.z, 25, 0.8); sfx.boop();
+      S.perch = null;
+      setMode("dodge", 1.0);
+      S.dodgeCd = 1.8;
+    }
+
+    /* ---------- Aggiornamento per frame ---------- */
+    function update(dt, t, frame){
+      const refSpace = renderer.xr.getReferenceSpace();
+      const xrCam = renderer.xr.getCamera();
+      head.setFromMatrixPosition(xrCam.matrixWorld);
+      xrCam.getWorldDirection(gazeDir);
+      fwd.copy(gazeDir); fwd.y = 0;
+      if (fwd.lengthSq() < 1e-4) fwd.set(0,0,-1);
+      fwd.normalize();
+
+      if (!startTime) startTime = t;
+
+      if (!S.poly.length && refSpace && refSpace.boundsGeometry && refSpace.boundsGeometry.length >= 3){
+        S.poly = Array.from(refSpace.boundsGeometry, p => ({x:p.x, z:p.z}));
+      }
+      updatePlanes(frame, refSpace);
+
+      // Comparsa automatica
+      if (!S.spawned){
+        if (t - startTime < CFG.spawnDelay) return;
+        S.center.copy(head);
+        pivot.position.set(head.x + fwd.x*CFG.spawnDistance, 1.2, head.z + fwd.z*CFG.spawnDistance);
+        S.yaw = Math.atan2(head.x - pivot.position.x, head.z - pivot.position.z);
+        pickWaypoint();
+        S.spawned = true; S.spawnT = 0; S.prevHead.copy(head); S.initHead = true;
+        pivot.visible = true; shadow.visible = true;
+        emit(pivot.position.x, pivot.position.y, pivot.position.z, 160, 1.6, 0.2); sfx.spawn();
+        setStatus("");
+      }
+
+      S.spawnT = Math.min(1, S.spawnT + dt/0.9);
+      const grow = easeOutBack(S.spawnT);
+      const pos = pivot.position;
+      const halfH = CFG.size * logo.scale.y * 0.5;
+
+      /* --- Misure: distanza, velocità con cui ti avvicini, sguardo --- */
+      const dHead = Math.hypot(pos.x-head.x, pos.z-head.z);
+      dirV.copy(pos).sub(head);
+      const dist3 = dirV.length();
+      dirV.normalize();
+      const headSpeedVec = tmp.copy(head).sub(S.prevHead).divideScalar(Math.max(dt, 1e-3));
+      S.prevHead.copy(head);
+      S.closing += (headSpeedVec.dot(dirV) - S.closing) * (1 - Math.exp(-dt*8));
+
+      // Mano/controller più vicino, con la sua velocità di avvicinamento
+      let handPos = null, handDist = Infinity, handClosing = 0, handSpeed = 0;
+      for (const ctl of controllers){
+        if (!ctl.userData.connected) continue;
+        const hp = new THREE.Vector3().setFromMatrixPosition(ctl.matrixWorld);
+        const prev = ctl.userData.prev || hp.clone();
+        const hv = hp.clone().sub(prev).divideScalar(Math.max(dt, 1e-3));
+        ctl.userData.prev = hp.clone();
+        const d = hp.distanceTo(pos);
+        if (d < handDist){
+          handDist = d; handPos = hp;
+          handClosing = hv.dot(tmp2.copy(pos).sub(hp).normalize());
+          handSpeed = hv.length();
+        }
+      }
+
+      S.dodgeCd = Math.max(0, S.dodgeCd - dt);
+      S.curiousCd = Math.max(0, S.curiousCd - dt);
+      S.greetCd = Math.max(0, S.greetCd - dt);
+      S.modeT -= dt;
+
+      /* --- Reazioni (hanno la precedenza) --- */
+      // 1) Ti avvicini di corsa → si scansa di lato
+      if (S.mode !== "dodge" && S.mode !== "present" && S.dodgeCd <= 0 &&
+          ((dist3 < 1.6 && S.closing > CFG.dodgeSpeedHead) || (handDist < 0.7 && handClosing > CFG.dodgeSpeedHand))){
+        startDodge(pos, "fast");
+      }
+      // 2) Ti avvicini piano, ma troppo → arretra con garbo
+      else if (S.mode !== "dodge" && S.mode !== "backoff" && S.mode !== "present" && dHead < CFG.shyDistance){
+        dirV.set(pos.x-head.x, 0, pos.z-head.z).normalize();
+        S.wp.copy(pos).addScaledVector(dirV, 0.7);
+        S.perch = null;
+        setMode("backoff", 0.9);
+      }
+      // 3) Mano ferma vicino → viene ad annusarla
+      else if ((S.mode === "wander" || S.mode === "curious" || S.mode === "sniff") &&
+               handPos && handDist < CFG.sniffDistance && handSpeed < 0.4 && handDist > 0.15){
+        S.sniffLost = 0;
+        setMode("sniff", 1);
+      }
+
+      /* --- Logica per modalità --- */
+      let speed = CFG.speed;
+      let hover = false;
+      switch (S.mode){
+        case "dodge":
+          speed = CFG.fleeSpeed;
+          if (S.modeT <= 0){ setMode("wander", 0); S.pause = 0.6; }
+          break;
+        case "backoff":
+          speed = 0.55;
+          if (S.modeT <= 0){ setMode("wander", 0); S.pause = 0.8; }
+          break;
+        case "sniff":
+          speed = 0.75;
+          if (handPos && handDist < CFG.sniffDistance + 0.25 && handSpeed < 0.6){
+            // si ferma a ~30 cm dalla mano, dal lato di chi guarda
+            tmp.copy(head).sub(handPos).setY(0).normalize();
+            S.wp.copy(handPos).addScaledVector(tmp, 0.3);
+            S.wp.y = handPos.y + 0.05;
+            S.sniffLost = 0;
+          } else {
+            S.sniffLost += dt;
+            if (S.sniffLost > 0.8){ setMode("wander", 0); S.pause = 1.0; }
+          }
+          break;
+        case "curious": {
+          speed = 0.6;
+          // orbita lentamente davanti a te a circa 1 m
+          const ang = Math.sin(t*0.7) * 0.6;
+          const c = Math.cos(ang), sn = Math.sin(ang);
+          S.wp.set(head.x + (S.curDir.x*c - S.curDir.z*sn)*1.0,
+                   THREE.MathUtils.clamp(head.y - 0.15 + Math.sin(t*1.3)*0.1, CFG.minY, CFG.maxY),
+                   head.z + (S.curDir.x*sn + S.curDir.z*c)*1.0);
+          if (S.modeT <= 0){
+            if (!S.autoOffered && dHead < 1.8){ S.autoOffered = true; startPresent(); }   // la prima volta ti presenta i programmi
+            else { setMode("wander", 0); S.pause = 0.5; S.curiousCd = rand(...CFG.curiousEvery); }
+          }
+          break;
+        }
+        case "present":
+          speed = 0.9;
+          S.wp.set(S.pAnchor.x, S.pAnchor.y + 0.72 + Math.sin(t*1.4)*0.03, S.pAnchor.z);
+          if (!S.presenting){ setMode("wander", 0); S.pause = 1; }
+          else if (Math.hypot(head.x-S.pAnchor.x, head.z-S.pAnchor.z) > 4.5 || t - S.presT > 90) endPresent();
+          break;
+        case "perch":
+          if (!S.perch){ setMode("wander", 0); break; }
+          if (S.perchPhase === "go"){
+            S.wp.copy(perchTarget);
+            if (pos.distanceTo(perchTarget) < 0.12){ S.perchPhase = "rest"; S.modeT = rand(5, 8); }
+          } else {
+            hover = true;                   // fermo sul tavolo
+            pos.lerp(perchTarget, 1 - Math.exp(-dt*4));
+            S.vel.multiplyScalar(Math.exp(-dt*6));
+            if (S.modeT <= 0){ S.perch = null; setMode("wander", 0); S.pause = 0.4; pickWaypoint(); }
+          }
+          break;
+        default: { // wander
+          if (S.pause > 0){
+            S.pause -= dt;
+            S.vel.multiplyScalar(Math.exp(-dt*3));
+            if (S.pause <= 0){
+              // Cosa fa dopo? Ti viene incontro, si posa, o esplora.
+              const far = dHead > 1.8;
+              if (S.curiousCd <= 0 && far){
+                S.curDir.set(pos.x-head.x, 0, pos.z-head.z).normalize();
+                setMode("curious", rand(5, 7));
+              } else {
+                const pl = Math.random() < CFG.perchChance ? findPerch() : null;
+                if (pl){
+                  S.perch = pl; S.perchPhase = "go";
+                  perchTarget.set(pl.center.x, pl.center.y + halfH + 0.02, pl.center.z);
+                  setMode("perch", 30);
+                } else pickWaypoint();
+              }
+            }
+          } else if (pos.distanceTo(S.wp) < 0.15){
+            S.pause = rand(1.5, 3.5);
+          }
+          // Se ti allontani troppo, ti raggiunge
+          if (dHead > CFG.roamRadius + 0.8){ pickWaypoint(); S.pause = 0; }
+        }
+      }
+
+      /* --- Movimento --- */
+      if (!hover && !(S.mode === "wander" && S.pause > 0)){
+        tmp.copy(S.wp).sub(pos);
+        const dist = tmp.length();
+        if (dist > 0.03){
+          tmp.normalize().multiplyScalar(Math.min(speed, dist*2.5 + 0.05));
+          S.vel.lerp(tmp, 1 - Math.exp(-dt*(S.mode === "dodge" ? 6 : 2.2)));
+        }
+        pos.addScaledVector(S.vel, dt);
+      }
+
+      /* --- Interazione con la stanza --- */
+      if (S.mode !== "present") planeCollision(pos, S.vel, CFG.avoidMargin, true, S.mode === "perch");
+      if (!inArea(pos.x, pos.z) && S.mode !== "perch" && S.mode !== "present"){
+        tmp.set(S.center.x - pos.x, 0, S.center.z - pos.z).normalize();
+        S.vel.addScaledVector(tmp, dt*1.5);
+        pos.addScaledVector(tmp, dt*0.3);
+      }
+      pos.y = THREE.MathUtils.clamp(pos.y, S.mode === "perch" ? 0.15 : CFG.minY, CFG.maxY);
+
+      /* --- Sguardo: se lo fissi per un po' ti saluta --- */
+      const looking = gazeDir.dot(dirV) > 0.97 && dist3 < 3.5 && S.mode !== "dodge";
+      S.gazeT = looking ? S.gazeT + dt : 0;
+      if (S.gazeT > 1.3 && S.greetCd <= 0 && S.jumpT < 0){
+        S.jumpT = 0; S.greetCd = 12; S.gazeT = 0;
+        emit(pos.x, pos.y, pos.z, 45, 1.0, 0.3);
+      }
+
+      /* --- Orientamento --- */
+      const targetYaw = Math.atan2(head.x - pos.x, head.z - pos.z);
+      S.yaw += angDiff(S.yaw, targetYaw) * (1 - Math.exp(-dt*(S.mode === "dodge" ? 7 : 3)));
+
+      let jump = 0, spin = 0;
+      if (S.jumpT >= 0){
+        S.jumpT += dt/0.8;
+        jump = Math.sin(Math.min(S.jumpT,1)*Math.PI) * 0.22;
+        if (S.jumpT >= 1) S.jumpT = -1;
+      }
+      if (S.spinT >= 0){
+        S.spinT += dt/0.9;
+        const e = Math.min(S.spinT,1);
+        spin = (e*e*(3-2*e)) * Math.PI*2;
+        if (S.spinT >= 1) S.spinT = -1;
+      }
+      S.flick = Math.max(0, S.flick - dt*2.2);
+      const wob = S.flick * Math.sin(t*38) * 0.35;      // tremolio di sorpresa
+
+      const bob = (S.mode === "perch" && S.perchPhase === "rest" ? 0.004 : Math.sin(t*1.6)*0.035) + jump;
+      logo.position.y = bob;
+      pivot.rotation.y = S.yaw + spin;
+      pivot.rotation.x = THREE.MathUtils.clamp(-S.vel.y*0.5, -0.3, 0.3) + Math.sin(t*1.1)*0.03;
+      pivot.rotation.z = THREE.MathUtils.clamp(
+        -(S.vel.x*Math.cos(S.yaw) - S.vel.z*Math.sin(S.yaw))*0.6, -0.35, 0.35) + wob;
+      const curiousPulse = S.mode === "curious" || S.mode === "sniff" ? 1 + Math.sin(t*5)*0.025 : 1;
+      pivot.scale.setScalar(Math.max(0.001, grow) * (1 + Math.sin(t*2.2)*0.012) * curiousPulse);
+
+      /* --- Effetti: orbite, scia di scintille, particelle --- */
+      orbs.forEach((o, i) => {
+        const a = t*(1.5 + 0.35*i) + i*2.1, r = 0.40 + Math.sin(t*0.8 + i)*0.03;
+        o.position.set(Math.cos(a)*r, Math.sin(a*1.3 + i)*0.16, Math.sin(a)*r*0.8);
+        if (Math.random() < 0.6){ o.getWorldPosition(tmp2); emit(tmp2.x, tmp2.y, tmp2.z, 1, 0.08); }
+      });
+      if (S.vel.length() > 0.2 && Math.random() < 0.8)
+        emit(pos.x + rand(-.15,.15), pos.y + rand(-.2,.1), pos.z + rand(-.15,.15), 1, 0.12);
+      if (bandTex) bandTex.offset.x = ((t*0.4) % 2.6) - 1.3;   // riflesso che attraversa i pannelli
+      stepParticles(dt);
+
+      /* --- Pannelli dei programmi --- */
+      let hov = -1; hovUv = null;
+      if (S.presenting){
+        const meshes = panels.map(p => p.mesh);
+        for (const ctl of controllers){
+          if (!ctl.userData.connected) continue;
+          setRay(ctl);
+          const h = rc.intersectObjects(meshes, false)[0];
+          if (h){ hov = meshes.indexOf(h.object); hovUv = h.uv; break; }
+        }
+      }
+      toHead.set(head.x - S.pAnchor.x, 0, head.z - S.pAnchor.z).normalize();
+      S.hintT -= dt;
+      panels.forEach((p, i) => {
+        if (!p.group.visible) return;
+        let ts = 0.02;
+        panelV.copy(pivot.position);
+        if (S.presenting && p.delay > 0){ p.delay -= dt; }
+        else if (S.presenting){
+          if (S.focus === -1){ panelV.copy(S.pAnchor).addScaledVector(S.pRight, p.side*0.5); ts = 1; }
+          else if (S.focus === i){ panelV.copy(S.pAnchor).addScaledVector(toHead, 0.15); ts = 1.55; }
+          else { panelV.copy(S.pAnchor).addScaledVector(S.pRight, p.side*1.15); ts = 0.5; }
+          if (hov === i) ts *= 1.05;
+          panelV.y += Math.sin(t*1.2 + i*1.7) * 0.012;
+        }
+        const k = 1 - Math.exp(-dt*(S.presenting ? 7 : 9));
+        p.pos.lerp(panelV, k); p.scale += (ts - p.scale) * k;
+        p.yaw += angDiff(p.yaw, Math.atan2(head.x - p.pos.x, head.z - p.pos.z)) * (1 - Math.exp(-dt*4));
+        p.group.position.copy(p.pos); p.group.rotation.y = p.yaw; p.group.scale.setScalar(p.scale);
+        const on = hov === i && hovUv;   // il pannello si inclina verso dove punti
+        p.tilt.rotation.x += ((on ? -(hovUv.y-0.5)*0.35 : 0) - p.tilt.rotation.x) * 0.15;
+        p.tilt.rotation.y += ((on ?  (hovUv.x-0.5)*0.35 : 0) - p.tilt.rotation.y) * 0.15;
+        p.tilt.rotation.z = Math.sin(t*0.8 + i)*0.015;
+        if (!S.presenting && p.scale < 0.05) p.group.visible = false;
+      });
+      hint.visible = S.presenting && S.hintT > 0 && S.spawned;
+      if (hint.visible){
+        hint.position.set(S.pAnchor.x, S.pAnchor.y - 0.62, S.pAnchor.z);
+        hint.rotation.y = Math.atan2(head.x - S.pAnchor.x, head.z - S.pAnchor.z);
+        hint.material.opacity = THREE.MathUtils.clamp(S.hintT, 0, 1);
+      }
+
+      /* --- Ombra: sul pavimento, o sul tavolo quando è posato --- */
+      const gTarget = S.mode === "perch" && S.perchPhase === "rest" ? perchTarget.y - halfH - 0.02 : 0;
+      S.groundY += (gTarget - S.groundY) * (1 - Math.exp(-dt*5));
+      const h = Math.max(0, pos.y + bob - S.groundY);
+      shadow.position.set(pos.x, S.groundY + 0.005, pos.z);
+      const sw = CFG.size * (0.9 + h*0.25) * grow;
+      shadow.scale.set(sw, 1, sw);
+      shadow.material.opacity = THREE.MathUtils.clamp(0.75 - h*0.28, 0.12, 0.7);
+    }
+
+    function render(time, frame){
+      const t = time/1000;
+      if (last === null) last = t;
+      const dt = Math.min(t - last, 0.05); last = t;
+      if (frame && renderer.xr.isPresenting) update(dt, t, frame);
+      renderer.render(scene, camera);
+    }
+
+    /* ---------- Avvio ---------- */
+    async function checkXR(){
+      if (!navigator.xr){
+        setStatus("Questo browser non espone WebXR. Apri il sito nel browser del Meta Quest.");
+        return;
+      }
+      const ok = await navigator.xr.isSessionSupported("immersive-ar").catch(() => false);
+      startBtn.disabled = !ok;
+      if (ok){
+        startBtn.textContent = "Entra nella realtà mista";
+        setStatus("Pronto. Guardati intorno: il logo compare da solo.");
+      } else {
+        startBtn.textContent = "Realtà mista non disponibile";
+        setStatus("La modalità immersive-ar non è disponibile in questo browser.");
+      }
+    }
+    startBtn.addEventListener("click", startAR);
+    checkXR();
+  </script>
+</body>
+</html>
